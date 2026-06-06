@@ -156,10 +156,16 @@ def register_placement_routes(api):
                         status=404,
                     )
 
-            # Create the location point
+            # Create the location point. Inputs are in MILLIMETERS (consistent
+            # with every other creation tool); Revit's internal unit is feet, so
+            # convert. Previously the raw mm value was used as feet, placing
+            # families ~304.8x too far from the intended point.
+            MM_TO_FEET = 1.0 / 304.8
             try:
                 point = DB.XYZ(
-                    float(location["x"]), float(location["y"]), float(location["z"])
+                    float(location["x"]) * MM_TO_FEET,
+                    float(location["y"]) * MM_TO_FEET,
+                    float(location["z"]) * MM_TO_FEET,
                 )
             except (ValueError, TypeError) as coord_error:
                 return routes.make_response(
@@ -335,16 +341,18 @@ def register_placement_routes(api):
                 t.Commit()
                 logger.info("Transaction committed successfully")
 
-                # Get actual placed location (may differ due to level constraints)
+                # Get actual placed location (may differ due to level constraints).
+                # Report in millimeters to match the input units.
+                FEET_TO_MM = 304.8
                 try:
                     actual_location = new_instance.Location.Point
                     actual_coords = {
-                        "x": actual_location.X,
-                        "y": actual_location.Y,
-                        "z": actual_location.Z,
+                        "x": actual_location.X * FEET_TO_MM,
+                        "y": actual_location.Y * FEET_TO_MM,
+                        "z": actual_location.Z * FEET_TO_MM,
                     }
                 except:
-                    actual_coords = {"x": point.X, "y": point.Y, "z": point.Z}
+                    actual_coords = {"x": point.X * FEET_TO_MM, "y": point.Y * FEET_TO_MM, "z": point.Z * FEET_TO_MM}
 
                 # Return information about the placed instance
                 response_data = {
@@ -352,7 +360,7 @@ def register_placement_routes(api):
                     "element_id": get_element_id_value(new_instance),
                     "family_name": family_name,
                     "type_name": type_name,
-                    "requested_location": {"x": point.X, "y": point.Y, "z": point.Z},
+                    "requested_location": {"x": point.X * FEET_TO_MM, "y": point.Y * FEET_TO_MM, "z": point.Z * FEET_TO_MM},
                     "actual_location": actual_coords,
                     "rotation_degrees": rotation,
                     "level": level_name if target_level else None,
