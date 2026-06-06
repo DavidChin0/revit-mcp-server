@@ -38,15 +38,18 @@ def register_structure_tools(mcp, revit_get, revit_post, revit_image=None):
     ) -> str:
         """Create structural beams and framing elements in Revit.
 
-        Beams are placed along a line between two points at a specified level.
-        All dimensions in millimeters. Supports batch creation.
+        Beams are placed along a line between two points, positioned at the
+        given level's elevation (like walls/floors). The point `z` is an offset
+        from that level — so pass z=0 to put the beam on the level, or a small
+        z for a drop/raise relative to it. All dimensions in millimeters.
+        Supports batch creation.
 
         Args:
             elements: List of beam definitions, each with:
-                - start_point (dict): {"x": float, "y": float, "z": float} in mm (required)
-                - end_point (dict): {"x": float, "y": float, "z": float} in mm (required)
+                - start_point (dict): {"x": float, "y": float, "z": float} in mm (required; z is offset from level)
+                - end_point (dict): {"x": float, "y": float, "z": float} in mm (required; z is offset from level)
                 - type_name (str): Beam family type name (optional)
-                - level_name (str): Target level name (optional)
+                - level_name (str): Target level name — sets the beam elevation (optional)
                 - name (str): Description for reference (optional)
             ctx: MCP context for logging
         """
