@@ -6,33 +6,41 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class _WarningSwallower(DB.IFailuresPreprocessor):
-    """Deletes Revit warnings during a transaction so they never raise a modal
-    dialog. Errors (non-warnings) are left for Revit to handle/roll back."""
+class _FailureSwallower(DB.IFailuresPreprocessor):
+    """Resolve Revit failures during a transaction without ever showing a modal
+    dialog. Warnings are deleted (the operation proceeds); if any error-severity
+    failure is present, the transaction is rolled back. Either way the headless
+    Routes server keeps running instead of hanging on a dialog."""
 
     def PreprocessFailures(self, failuresAccessor):
         try:
+            # Delete all warnings so they don't block (operation continues).
+            failuresAccessor.DeleteAllWarnings()
+            # If any genuine errors remain, roll back rather than go modal.
             for f in failuresAccessor.GetFailureMessages():
-                if f.GetSeverity() == DB.FailureSeverity.Warning:
-                    failuresAccessor.DeleteWarning(f)
+                if f.GetSeverity() == DB.FailureSeverity.Error:
+                    return DB.FailureProcessingResult.ProceedWithRollBack
         except Exception:
             pass
         return DB.FailureProcessingResult.Continue
 
 
 def suppress_warnings(transaction):
-    """Configure a transaction to auto-dismiss warnings without a modal dialog.
+    """Configure a transaction so Revit failures never block on a modal dialog.
 
     Essential for unattended/headless operation: without this, a routine Revit
-    warning (e.g. "window does not cut its host", overlapping walls) pops a modal
-    dialog that blocks the Routes server indefinitely. Call right after
-    transaction.Start(). Best-effort — never raises.
+    warning (e.g. overlapping walls) OR an error (e.g. "Can't cut instance out
+    of Wall") pops a modal dialog that blocks the Routes server indefinitely —
+    every later request then times out until a human clicks the dialog.
+
+    Warnings are auto-deleted (operation proceeds); errors roll the transaction
+    back cleanly. Call right after transaction.Start(). Best-effort — never raises.
     """
     try:
         opts = transaction.GetFailureHandlingOptions()
         opts.SetForcedModalHandling(False)
         opts.SetClearAfterRollback(True)
-        opts.SetFailuresPreprocessor(_WarningSwallower())
+        opts.SetFailuresPreprocessor(_FailureSwallower())
         transaction.SetFailureHandlingOptions(opts)
     except Exception:
         pass
