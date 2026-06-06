@@ -4,6 +4,7 @@ Code Execution Module for Revit MCP
 Handles direct execution of IronPython code in Revit context.
 """
 from pyrevit import routes, revit, DB
+from utils import suppress_warnings
 import json
 import logging
 import sys
@@ -48,6 +49,7 @@ def register_code_execution_routes(api):
             # Create a transaction for any model modifications
             t = DB.Transaction(doc, "MCP Code Execution: {}".format(description))
             t.Start()
+            suppress_warnings(t)
 
             try:
                 # Capture stdout to return any print statements

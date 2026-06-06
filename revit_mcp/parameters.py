@@ -4,7 +4,7 @@ Parameters Module for Revit MCP
 Handles reading element properties and setting parameter values
 """
 
-from utils import get_element_name, get_element_id_value, make_element_id
+from utils import get_element_name, get_element_id_value, make_element_id, suppress_warnings
 from pyrevit import routes, revit, DB
 import json
 import traceback
@@ -274,6 +274,7 @@ def register_parameter_routes(api):
 
             t = DB.Transaction(doc, "Set Parameter via MCP")
             t.Start()
+            suppress_warnings(t)
 
             try:
                 # Set value based on storage type

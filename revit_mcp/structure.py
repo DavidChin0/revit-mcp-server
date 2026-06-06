@@ -4,7 +4,7 @@ Structure Module for Revit MCP
 Handles grid creation and structural framing placement
 """
 
-from utils import get_element_name, find_family_symbol_safely, get_element_id_value
+from utils import get_element_name, find_family_symbol_safely, get_element_id_value, suppress_warnings
 from pyrevit import routes, revit, DB
 import json
 import traceback
@@ -42,6 +42,7 @@ def register_structure_routes(api):
 
             t = DB.Transaction(doc, "Create Grids via MCP")
             t.Start()
+            suppress_warnings(t)
 
             try:
                 created = []
@@ -160,6 +161,7 @@ def register_structure_routes(api):
 
             t = DB.Transaction(doc, "Create Structural Framing via MCP")
             t.Start()
+            suppress_warnings(t)
 
             try:
                 created = []

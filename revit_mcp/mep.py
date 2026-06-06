@@ -4,7 +4,7 @@ MEP Module for Revit MCP
 Handles duct, pipe, and MEP system creation
 """
 
-from utils import get_element_name, get_element_id_value, make_element_id
+from utils import get_element_name, get_element_id_value, make_element_id, suppress_warnings
 from pyrevit import routes, revit, DB
 import json
 import traceback
@@ -126,6 +126,7 @@ def register_mep_routes(api):
 
             t = DB.Transaction(doc, "Create Duct via MCP")
             t.Start()
+            suppress_warnings(t)
 
             try:
                 sys_type_id = target_system_type.Id if target_system_type else DB.ElementId.InvalidElementId
@@ -289,6 +290,7 @@ def register_mep_routes(api):
 
             t = DB.Transaction(doc, "Create Pipe via MCP")
             t.Start()
+            suppress_warnings(t)
 
             try:
                 sys_type_id = target_system_type.Id if target_system_type else DB.ElementId.InvalidElementId
@@ -380,6 +382,7 @@ def register_mep_routes(api):
 
             t = DB.Transaction(doc, "Create MEP System via MCP")
             t.Start()
+            suppress_warnings(t)
 
             try:
                 new_system = None

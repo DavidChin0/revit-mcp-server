@@ -4,7 +4,7 @@ Color management functionality for Revit elements
 Provides tools for color splashing elements based on parameter values
 """
 
-from utils import get_element_id_value
+from utils import get_element_id_value, suppress_warnings
 from pyrevit import routes, DB
 import json
 import logging
@@ -778,6 +778,7 @@ def color_elements_by_parameter(
 
         with DB.Transaction(doc, "Color Elements by Parameter") as t:
             t.Start()
+            suppress_warnings(t)
 
             # Ensure we have enough colors
             if len(colors) < value_count:
@@ -941,6 +942,7 @@ def clear_element_colors(doc, category_name):
 
         with DB.Transaction(doc, "Clear Element Colors") as t:
             t.Start()
+            suppress_warnings(t)
 
             # Clear overrides for each element in active view
             for element in elements:

@@ -4,7 +4,7 @@ Tags Module for Revit MCP
 Handles element tagging with annotation symbols
 """
 
-from utils import get_element_name, get_element_id_value, make_element_id
+from utils import get_element_name, get_element_id_value, make_element_id, suppress_warnings
 from pyrevit import routes, revit, DB
 import json
 import traceback
@@ -114,6 +114,7 @@ def register_tag_routes(api):
 
             t = DB.Transaction(doc, "Tag Elements via MCP")
             t.Start()
+            suppress_warnings(t)
 
             try:
                 tagged_ids = []

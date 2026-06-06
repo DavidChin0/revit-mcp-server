@@ -4,7 +4,7 @@ Placement Module for Revit MCP
 Handles family placement and element creation functionality
 """
 
-from utils import get_element_name, find_family_symbol_safely, get_element_id_value
+from utils import get_element_name, find_family_symbol_safely, get_element_id_value, suppress_warnings
 from pyrevit import routes, revit, DB
 import json
 import traceback
@@ -171,6 +171,7 @@ def register_placement_routes(api):
             transaction_name = "Place Family Instance via MCP"
             t = DB.Transaction(doc, transaction_name)
             t.Start()
+            suppress_warnings(t)
 
             try:
                 # Ensure the symbol is activated

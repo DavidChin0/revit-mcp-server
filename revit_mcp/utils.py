@@ -6,6 +6,38 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class _WarningSwallower(DB.IFailuresPreprocessor):
+    """Deletes Revit warnings during a transaction so they never raise a modal
+    dialog. Errors (non-warnings) are left for Revit to handle/roll back."""
+
+    def PreprocessFailures(self, failuresAccessor):
+        try:
+            for f in failuresAccessor.GetFailureMessages():
+                if f.GetSeverity() == DB.FailureSeverity.Warning:
+                    failuresAccessor.DeleteWarning(f)
+        except Exception:
+            pass
+        return DB.FailureProcessingResult.Continue
+
+
+def suppress_warnings(transaction):
+    """Configure a transaction to auto-dismiss warnings without a modal dialog.
+
+    Essential for unattended/headless operation: without this, a routine Revit
+    warning (e.g. "window does not cut its host", overlapping walls) pops a modal
+    dialog that blocks the Routes server indefinitely. Call right after
+    transaction.Start(). Best-effort — never raises.
+    """
+    try:
+        opts = transaction.GetFailureHandlingOptions()
+        opts.SetForcedModalHandling(False)
+        opts.SetClearAfterRollback(True)
+        opts.SetFailuresPreprocessor(_WarningSwallower())
+        transaction.SetFailureHandlingOptions(opts)
+    except Exception:
+        pass
+
+
 def normalize_string(text):
     """Safely normalize string values to ASCII-safe output."""
     if text is None:
