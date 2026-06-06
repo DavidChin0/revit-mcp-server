@@ -1,6 +1,6 @@
 # Revit MCP Server
 
-MCP server for Autodesk Revit 2024/2025/2026 via pyRevit — 45 tools for building design, editing, analysis, MEP, interop, and documentation.
+MCP server for Autodesk Revit 2024/2025/2026/2027 via pyRevit — 45 tools for building design, editing, analysis, MEP, interop, and documentation.
 
 Works with any MCP client: Claude Desktop, Claude Code, Cursor, Windsurf, Copilot, or any other MCP-compatible application.
 
@@ -17,7 +17,7 @@ The MCP server runs on your machine and communicates with Revit through pyRevit'
 | Requirement | Details |
 |-------------|---------|
 | **Windows 10/11** | Revit is Windows-only |
-| **Autodesk Revit** | 2024, 2025, or 2026 |
+| **Autodesk Revit** | 2024, 2025, 2026, or 2027 |
 | **pyRevit** | Installed and loaded in Revit |
 | **uv** | Python package manager ([install](https://docs.astral.sh/uv/getting-started/installation/)) |
 | **A project open in Revit** | Tools require an active document |
@@ -237,12 +237,14 @@ Two runtimes communicate over HTTP:
 
 ## Multi-Version Revit Support
 
-This server supports Revit 2024, 2025, and 2026 through centralized helper functions that handle the ElementId API differences across versions:
+This server supports Revit 2024, 2025, 2026, and 2027 through centralized helper functions that handle the ElementId API differences across versions:
 
 - `get_element_id_value()` — Extracts integer IDs using `.Value` (2024+) with `.IntegerValue` fallback
 - `make_element_id()` — Creates ElementIds using `System.Int64` (2024+) with `int` fallback
 
 No configuration needed — version detection is automatic via try/except at runtime.
+
+> **Revit 2027 note:** Revit 2027 runs on **.NET 10** (vs .NET 8 in 2025/2026). This MCP server is pyRevit-based, so .NET compatibility is handled by pyRevit itself — ensure you run a **pyRevit build with Revit 2027 support**. None of the 45 tools use APIs removed in 2027 (AXM/FormIt import, `Mechanical.Zone` members, legacy rebar creation, or the dropped `EnergyDataSettings` properties).
 
 ## Unit Handling
 

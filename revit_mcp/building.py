@@ -27,7 +27,7 @@ def register_building_routes(api):
         try:
             if not doc:
                 return routes.make_response(
-                    data={"error": "No active Revit document — open a project in Revit 2026"},
+                    data={"error": "No active Revit document — open a project in Revit"},
                     status=503,
                 )
 
@@ -281,7 +281,7 @@ def register_building_routes(api):
         try:
             if not doc:
                 return routes.make_response(
-                    data={"error": "No active Revit document — open a project in Revit 2026"},
+                    data={"error": "No active Revit document — open a project in Revit"},
                     status=503,
                 )
 
@@ -559,7 +559,7 @@ def register_building_routes(api):
         try:
             if not doc:
                 return routes.make_response(
-                    data={"error": "No active Revit document — open a project in Revit 2026"},
+                    data={"error": "No active Revit document — open a project in Revit"},
                     status=503,
                 )
 

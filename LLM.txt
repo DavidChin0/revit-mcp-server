@@ -194,7 +194,9 @@ def get_doors(doc):
               .ToElements()
 
     # let's grab the integer ids of the door instances
-    doors_data = [x.Id.IntegerValue for x in doors]
+    # NOTE: .IntegerValue is deprecated (Revit 2024+) and removed in newer APIs.
+    # Use ElementId.Value, or the cross-version helper get_element_id_value().
+    doors_data = [x.Id.Value for x in doors]
 ```
 
 and now we can use the routes module again to prepare a response:
@@ -207,7 +209,7 @@ def get_doors(doc):
               .OfCategory(DB.BuiltInCategory.OST_Doors)\
               .WhereElementIsNotElementType()\
               .ToElements()
-    doors_data = [x.Id.IntegerValue for x in doors]
+    doors_data = [x.Id.Value for x in doors]  # .Value (Revit 2024+); avoid deprecated .IntegerValue
 
     # create response and return
     return routes.make_response(data=doors_data)

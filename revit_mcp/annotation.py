@@ -316,7 +316,7 @@ def register_annotation_routes(api):
                         mid = curve.Evaluate(0.5, True)
                         tag_point = DB.UV(mid.X, mid.Y)
 
-                        # Create tag using Revit 2026 API
+                        # Create tag using IndependentTag.Create (Revit 2024+)
                         ref = DB.Reference(wall)
                         tag = DB.IndependentTag.Create(
                             doc,

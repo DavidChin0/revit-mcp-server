@@ -43,7 +43,7 @@ def get_element_id_value(element_or_id):
     """
     Extract an integer element ID from an Element or ElementId.
     Accepts both a full Revit Element and a raw ElementId (duck typing).
-    Compatible with Revit 2024, 2025, and 2026.
+    Compatible with Revit 2024, 2025, 2026, and 2027.
     Returns a plain Python int for JSON serialization.
     Raises ValueError if the ID cannot be extracted or input is None.
     """
@@ -68,7 +68,7 @@ def get_element_id_value(element_or_id):
 def make_element_id(id_value):
     """
     Create a DB.ElementId from an integer value.
-    Compatible with Revit 2024, 2025, and 2026.
+    Compatible with Revit 2024, 2025, 2026, and 2027.
     Tries System.Int64 constructor first (2024+), falls back to int.
     Raises ValueError if the ElementId cannot be created or input is invalid.
     """
