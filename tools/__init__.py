@@ -26,6 +26,7 @@ def register_tools(mcp_server, revit_get_func, revit_post_func, revit_image_func
     from .interop_tools import register_interop_tools
     from .detail_tools import register_detail_tools
     from .clash_tools import register_clash_tools
+    from .document_tools import register_document_tools
 
     # Register tools from each module
     register_status_tools(mcp_server, revit_get_func)
@@ -51,3 +52,4 @@ def register_tools(mcp_server, revit_get_func, revit_post_func, revit_image_func
     register_interop_tools(mcp_server, revit_get_func, revit_post_func, revit_image_func)
     register_detail_tools(mcp_server, revit_get_func, revit_post_func, revit_image_func)
     register_clash_tools(mcp_server, revit_get_func, revit_post_func, revit_image_func)
+    register_document_tools(mcp_server, revit_get_func, revit_post_func, revit_image_func)
