@@ -97,6 +97,10 @@ def register_routes():
 
         register_detail_routes(api)
 
+        from revit_mcp.clash import register_clash_routes
+
+        register_clash_routes(api)
+
         logger.info("All MCP routes registered successfully")
 
     except Exception as e:

@@ -365,8 +365,20 @@ def register_building_routes(api):
                         # Point format: [{"x":0,"y":0,"z":0}, ...]
                         # Segment format: [{"p0":{"x":0,...},"p1":{"x":0,...}}, ...]
                         if "x" in boundary[0] or "y" in boundary[0]:
-                            # Point array format — convert to segment format
-                            points = boundary
+                            # Point array format — convert to segment format.
+                            points = list(boundary)
+                            # Drop an explicit closing point (last == first); otherwise the
+                            # wrap-around below would create a zero-length segment and Revit
+                            # rejects it with "Curve length is too small".
+                            if len(points) > 1:
+                                f, l = points[0], points[-1]
+                                same = (
+                                    abs(float(f.get("x", 0)) - float(l.get("x", 0))) < 0.001
+                                    and abs(float(f.get("y", 0)) - float(l.get("y", 0))) < 0.001
+                                    and abs(float(f.get("z", 0)) - float(l.get("z", 0))) < 0.001
+                                )
+                                if same:
+                                    points = points[:-1]
                             boundary = []
                             for pi in range(len(points)):
                                 p0 = points[pi]
@@ -419,7 +431,20 @@ def register_building_routes(api):
                                     continue
                             else:
                                 if floor_type_map:
-                                    floor_type = list(floor_type_map.values())[0]
+                                    # Prefer a real (non-foundation) floor type. Picking the
+                                    # raw first type often lands on "Foundation Slab", which
+                                    # Revit categorizes as a Structural Foundation, not a
+                                    # Floor — surprising when the caller asked for a floor.
+                                    floor_type = None
+                                    for ft in floor_type_map.values():
+                                        try:
+                                            if not getattr(ft, "IsFoundationSlab", False):
+                                                floor_type = ft
+                                                break
+                                        except Exception:
+                                            continue
+                                    if floor_type is None:
+                                        floor_type = list(floor_type_map.values())[0]
                                 else:
                                     errors.append(
                                         "Element {}: No floor types available — load floor families".format(idx)

@@ -1,6 +1,6 @@
 # Revit MCP Server
 
-MCP server for Autodesk Revit 2024/2025/2026/2027 via pyRevit — 45 tools for building design, editing, analysis, MEP, interop, and documentation.
+MCP server for Autodesk Revit 2024/2025/2026/2027 via pyRevit — 46 tools for building design, editing, analysis, clash detection, MEP, interop, and documentation.
 
 Works with any MCP client: Claude Desktop, Claude Code, Cursor, Windsurf, Copilot, or any other MCP-compatible application.
 
@@ -144,7 +144,7 @@ mcp dev main.py
 
 Then open `http://127.0.0.1:6274` in your browser.
 
-## Supported Tools (45)
+## Supported Tools (46)
 
 ### Create (15)
 
@@ -197,13 +197,14 @@ Then open `http://127.0.0.1:6274` in your browser.
 | `transform_elements` | Move, copy, rotate, or mirror elements |
 | `set_active_view` | Switch the active view in Revit |
 
-### Analyze (4)
+### Analyze (5)
 
 | Tool | Description |
 |------|-------------|
 | `ai_element_filter` | Filter elements by category and parameters |
 | `export_room_data` | Export room areas, volumes, boundaries |
 | `get_material_quantities` | Material takeoff data |
+| `check_clashes` | Detect hard clashes (interferences) between disciplines, e.g. structure vs MEP |
 | `analyze_model_statistics` | Element counts and model stats |
 
 ### Document (3)
@@ -244,7 +245,7 @@ This server supports Revit 2024, 2025, 2026, and 2027 through centralized helper
 
 No configuration needed — version detection is automatic via try/except at runtime.
 
-> **Revit 2027 note:** Revit 2027 runs on **.NET 10** (vs .NET 8 in 2025/2026). This MCP server is pyRevit-based, so .NET compatibility is handled by pyRevit itself — ensure you run a **pyRevit build with Revit 2027 support**. None of the 45 tools use APIs removed in 2027 (AXM/FormIt import, `Mechanical.Zone` members, legacy rebar creation, or the dropped `EnergyDataSettings` properties).
+> **Revit 2027 note:** Revit 2027 runs on **.NET 10** (vs .NET 8 in 2025/2026). This MCP server is pyRevit-based, so .NET compatibility is handled by pyRevit itself — ensure you run a **pyRevit build with Revit 2027 support**. None of the 46 tools use APIs removed in 2027 (AXM/FormIt import, `Mechanical.Zone` members, legacy rebar creation, or the dropped `EnergyDataSettings` properties).
 
 ## Unit Handling
 

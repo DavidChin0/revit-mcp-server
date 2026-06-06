@@ -10,6 +10,7 @@ import tempfile
 import os
 import base64
 import logging
+from urllib import unquote
 from System.Collections.Generic import List
 
 from utils import normalize_string, get_element_name
@@ -38,6 +39,13 @@ def register_views_routes(api):
                     data={"error": "No active Revit document"}, status=503
                 )
 
+            # URL-decode the path parameter first (e.g. "Level%201" -> "Level 1").
+            # Almost all Revit view names contain spaces, so without this the
+            # lookup fails for nearly every real view.
+            try:
+                view_name = unquote(view_name)
+            except Exception:
+                pass
             # Normalize the view name
             view_name = normalize_string(view_name)
             logger.info("Exporting view: {}".format(view_name))
