@@ -178,8 +178,81 @@ def register_placement_routes(api):
                     target_symbol.Activate()
                     doc.Regenerate()  # Ensure activation takes effect
 
+                # Determine whether this family must be hosted by a wall
+                # (windows, doors, and other wall-hosted families). Using the
+                # non-hosted NewFamilyInstance overload for these silently
+                # produces an unhosted instance snapped to the origin, so we
+                # locate the nearest wall and use the host-based overload.
+                needs_wall_host = False
+                try:
+                    fpt = target_symbol.Family.FamilyPlacementType
+                    if fpt == DB.FamilyPlacementType.OneLevelBasedHosted:
+                        needs_wall_host = True
+                except Exception:
+                    pass
+                try:
+                    if target_symbol.Category:
+                        cat_id = get_element_id_value(target_symbol.Category.Id)
+                        if cat_id in (
+                            int(DB.BuiltInCategory.OST_Windows),
+                            int(DB.BuiltInCategory.OST_Doors),
+                        ):
+                            needs_wall_host = True
+                except Exception:
+                    pass
+
+                host_wall = None
+                if needs_wall_host:
+                    # Find the wall whose location curve passes closest to the point.
+                    best_dist = None
+                    walls = (
+                        DB.FilteredElementCollector(doc)
+                        .OfCategory(DB.BuiltInCategory.OST_Walls)
+                        .WhereElementIsNotElementType()
+                        .ToElements()
+                    )
+                    test_pt = DB.XYZ(point.X, point.Y, point.Z)
+                    for w in walls:
+                        try:
+                            wloc = w.Location
+                            if not wloc or not hasattr(wloc, "Curve"):
+                                continue
+                            d = wloc.Curve.Distance(test_pt)
+                            if best_dist is None or d < best_dist:
+                                best_dist = d
+                                host_wall = w
+                        except Exception:
+                            continue
+
                 # Create the instance
-                if target_level:
+                if host_wall is not None:
+                    # Wall-hosted placement (windows/doors)
+                    if target_level:
+                        new_instance = doc.Create.NewFamilyInstance(
+                            point,
+                            target_symbol,
+                            host_wall,
+                            target_level,
+                            DB.Structure.StructuralType.NonStructural,
+                        )
+                    else:
+                        new_instance = doc.Create.NewFamilyInstance(
+                            point,
+                            target_symbol,
+                            host_wall,
+                            DB.Structure.StructuralType.NonStructural,
+                        )
+                elif needs_wall_host:
+                    # Hosted family but no wall found nearby — fail clearly
+                    # instead of creating a broken unhosted instance at the origin.
+                    t.RollBack()
+                    return routes.make_response(
+                        data={
+                            "error": "Family '{}' must be hosted by a wall, but no wall was found near the requested location. Create the host wall first.".format(family_name)
+                        },
+                        status=400,
+                    )
+                elif target_level:
                     # Place on specific level
                     new_instance = doc.Create.NewFamilyInstance(
                         point,
