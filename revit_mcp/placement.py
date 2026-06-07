@@ -7,6 +7,7 @@ Handles family placement and element creation functionality
 from utils import get_element_name, find_family_symbol_safely, get_element_id_value, suppress_warnings
 from pyrevit import routes, revit, DB
 import json
+import os
 import traceback
 import logging
 
@@ -383,6 +384,61 @@ def register_placement_routes(api):
             return routes.make_response(
                 data={"error": str(e), "traceback": error_trace}, status=500
             )
+
+    @api.route("/load_family/", methods=["POST"])
+    def load_family(doc, request):
+        """
+        Load a Revit family (.rfa) from disk into the active document, so its
+        types become available to place_family. Must run outside a transaction
+        (LoadFamily manages its own), so this route does not open one.
+
+        Payload: { "file_path": "C:\\\\path\\\\to\\\\Family.rfa" }
+        """
+        try:
+            if not doc:
+                return routes.make_response(
+                    data={"error": "No active Revit document"}, status=503
+                )
+            data = json.loads(request.data) if isinstance(request.data, str) else request.data
+            file_path = data.get("file_path")
+            if not file_path:
+                return routes.make_response(
+                    data={"error": "file_path is required (full path to a .rfa file)"},
+                    status=400,
+                )
+            if not os.path.exists(file_path):
+                return routes.make_response(
+                    data={"error": "Family file not found: {}".format(file_path)},
+                    status=404,
+                )
+
+            try:
+                result = doc.LoadFamily(file_path)
+                # IronPython may return (bool, Family) for the out-param overload
+                ok = result[0] if isinstance(result, tuple) else result
+            except Exception as le:
+                return routes.make_response(
+                    data={"error": "LoadFamily failed: {}".format(str(le))},
+                    status=500,
+                )
+
+            fam_name = os.path.splitext(os.path.basename(file_path))[0]
+            if not ok:
+                return routes.make_response(data={
+                    "status": "already_loaded",
+                    "family_name": fam_name,
+                    "file_path": file_path,
+                    "message": "Family '{}' was already loaded (or no new types added)".format(fam_name),
+                })
+            return routes.make_response(data={
+                "status": "success",
+                "family_name": fam_name,
+                "file_path": file_path,
+                "message": "Loaded family '{}'. Its types are now available to place_family.".format(fam_name),
+            })
+        except Exception as e:
+            logger.error("load_family failed: {}".format(str(e)))
+            return routes.make_response(data={"error": str(e)}, status=500)
 
     @api.route("/list_families/", methods=["GET"])
     def list_families(doc, request):

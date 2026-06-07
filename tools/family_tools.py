@@ -52,3 +52,20 @@ def register_family_tools(mcp, revit_get, revit_post):
         """Get a list of all family categories in the current Revit model"""
         response = await revit_get("/list_family_categories/", ctx)
         return format_response(response)
+
+    @mcp.tool()
+    async def load_family(file_path: str, ctx: Context = None) -> str:
+        """Load a Revit family (.rfa file) from disk into the active document.
+
+        Use this when a needed family (furniture, doors, windows, equipment) is
+        not already loaded in the project — load it first, then place_family can
+        place its types. The file_path must be a full path to a .rfa file
+        accessible to the machine running Revit.
+
+        Args:
+            file_path: Full path to the .rfa family file, e.g.
+                "C:\\ProgramData\\Autodesk\\RVT 2027\\Libraries\\English\\Furniture\\Chair.rfa"
+            ctx: MCP context for logging
+        """
+        response = await revit_post("/load_family/", {"file_path": file_path}, ctx)
+        return format_response(response)
