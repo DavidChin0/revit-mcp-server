@@ -4,7 +4,7 @@ Editing Module for Revit MCP
 Handles element deletion, modification, and selection retrieval
 """
 
-from utils import get_element_name, make_element_id, get_element_id_value
+from utils import get_element_name, make_element_id, get_element_id_value, suppress_warnings
 from pyrevit import routes, revit, DB
 import json
 import traceback
@@ -54,6 +54,7 @@ def register_editing_routes(api):
             # Delete in a single transaction
             t = DB.Transaction(doc, "Delete Elements via MCP")
             t.Start()
+            suppress_warnings(t)
 
             try:
                 deleted_ids = []
@@ -150,6 +151,7 @@ def register_editing_routes(api):
             # Start transaction
             t = DB.Transaction(doc, "Modify Element via MCP")
             t.Start()
+            suppress_warnings(t)
 
             try:
                 changes = []

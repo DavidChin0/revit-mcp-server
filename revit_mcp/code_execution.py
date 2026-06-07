@@ -4,6 +4,7 @@ Code Execution Module for Revit MCP
 Handles direct execution of IronPython code in Revit context.
 """
 from pyrevit import routes, revit, DB
+from utils import suppress_warnings
 import json
 import logging
 import sys
@@ -48,6 +49,7 @@ def register_code_execution_routes(api):
             # Create a transaction for any model modifications
             t = DB.Transaction(doc, "MCP Code Execution: {}".format(description))
             t.Start()
+            suppress_warnings(t)
 
             try:
                 # Capture stdout to return any print statements
@@ -55,11 +57,20 @@ def register_code_execution_routes(api):
                 captured_output = StringIO()
                 sys.stdout = captured_output
 
-                # Create a namespace with common Revit objects available
+                # Create a namespace with common Revit objects available.
+                # System and clr are pre-imported so callers can use the
+                # Revit 2027-safe ElementId pattern: DB.ElementId(System.Int64(id)).
+                # In 2027 a bare DB.ElementId(<int>) raises "Multiple targets
+                # could match" because of new BuiltInParameter/BuiltInCategory/Int64
+                # overloads, so exposing System here avoids a common foot-gun.
+                import clr as _clr
+                import System as _System
                 namespace = {
                     "doc": doc,
                     "DB": DB,
                     "revit": revit,
+                    "clr": _clr,
+                    "System": _System,
                     "__builtins__": __builtins__,
                     "print": lambda *args: captured_output.write(
                         " ".join(str(arg) for arg in args) + "\n"

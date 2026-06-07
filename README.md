@@ -1,6 +1,6 @@
 # Revit MCP Server
 
-MCP server for Autodesk Revit 2024/2025/2026 via pyRevit — 45 tools for building design, editing, analysis, MEP, interop, and documentation.
+MCP server for Autodesk Revit 2024/2025/2026/2027 via pyRevit — 48 tools for building design, editing, analysis, clash detection, MEP, interop, documentation, and model persistence.
 
 Works with any MCP client: Claude Desktop, Claude Code, Cursor, Windsurf, Copilot, or any other MCP-compatible application.
 
@@ -17,7 +17,7 @@ The MCP server runs on your machine and communicates with Revit through pyRevit'
 | Requirement | Details |
 |-------------|---------|
 | **Windows 10/11** | Revit is Windows-only |
-| **Autodesk Revit** | 2024, 2025, or 2026 |
+| **Autodesk Revit** | 2024, 2025, 2026, or 2027 |
 | **pyRevit** | Installed and loaded in Revit |
 | **uv** | Python package manager ([install](https://docs.astral.sh/uv/getting-started/installation/)) |
 | **A project open in Revit** | Tools require an active document |
@@ -144,7 +144,7 @@ mcp dev main.py
 
 Then open `http://127.0.0.1:6274` in your browser.
 
-## Supported Tools (45)
+## Supported Tools (48)
 
 ### Create (15)
 
@@ -197,13 +197,14 @@ Then open `http://127.0.0.1:6274` in your browser.
 | `transform_elements` | Move, copy, rotate, or mirror elements |
 | `set_active_view` | Switch the active view in Revit |
 
-### Analyze (4)
+### Analyze (5)
 
 | Tool | Description |
 |------|-------------|
 | `ai_element_filter` | Filter elements by category and parameters |
 | `export_room_data` | Export room areas, volumes, boundaries |
 | `get_material_quantities` | Material takeoff data |
+| `check_clashes` | Detect hard clashes (interferences) between disciplines, e.g. structure vs MEP |
 | `analyze_model_statistics` | Element counts and model stats |
 
 ### Document (3)
@@ -213,12 +214,14 @@ Then open `http://127.0.0.1:6274` in your browser.
 | `create_dimensions` | Create dimension annotations |
 | `export_document` | Export views to PDF or image |
 
-### Interop (2)
+### Interop & Persistence (4)
 
 | Tool | Description |
 |------|-------------|
 | `export_ifc` | Export model to IFC format (IFC2x3/IFC4) |
-| `link_file` | Link or import DWG, DXF, DGN, or RVT files |
+| `link_file` | Link or import DWG, DXF, DGN, SAT, SKP, 3DM, or RVT files |
+| `load_family` | Load a Revit family (`.rfa`) from disk so its types can be placed |
+| `save_document` | Save / Save-As the model to disk (persistence across sessions) |
 
 ### Advanced (1)
 
@@ -237,12 +240,14 @@ Two runtimes communicate over HTTP:
 
 ## Multi-Version Revit Support
 
-This server supports Revit 2024, 2025, and 2026 through centralized helper functions that handle the ElementId API differences across versions:
+This server supports Revit 2024, 2025, 2026, and 2027 through centralized helper functions that handle the ElementId API differences across versions:
 
 - `get_element_id_value()` — Extracts integer IDs using `.Value` (2024+) with `.IntegerValue` fallback
 - `make_element_id()` — Creates ElementIds using `System.Int64` (2024+) with `int` fallback
 
 No configuration needed — version detection is automatic via try/except at runtime.
+
+> **Revit 2027 note:** Revit 2027 runs on **.NET 10** (vs .NET 8 in 2025/2026). This MCP server is pyRevit-based, so .NET compatibility is handled by pyRevit itself — ensure you run a **pyRevit build with Revit 2027 support**. None of the 48 tools use APIs removed in 2027 (AXM/FormIt import, `Mechanical.Zone` members, legacy rebar creation, or the dropped `EnergyDataSettings` properties).
 
 ## Unit Handling
 

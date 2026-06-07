@@ -6,6 +6,46 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class _FailureSwallower(DB.IFailuresPreprocessor):
+    """Resolve Revit failures during a transaction without ever showing a modal
+    dialog. Warnings are deleted (the operation proceeds); if any error-severity
+    failure is present, the transaction is rolled back. Either way the headless
+    Routes server keeps running instead of hanging on a dialog."""
+
+    def PreprocessFailures(self, failuresAccessor):
+        try:
+            # Delete all warnings so they don't block (operation continues).
+            failuresAccessor.DeleteAllWarnings()
+            # If any genuine errors remain, roll back rather than go modal.
+            for f in failuresAccessor.GetFailureMessages():
+                if f.GetSeverity() == DB.FailureSeverity.Error:
+                    return DB.FailureProcessingResult.ProceedWithRollBack
+        except Exception:
+            pass
+        return DB.FailureProcessingResult.Continue
+
+
+def suppress_warnings(transaction):
+    """Configure a transaction so Revit failures never block on a modal dialog.
+
+    Essential for unattended/headless operation: without this, a routine Revit
+    warning (e.g. overlapping walls) OR an error (e.g. "Can't cut instance out
+    of Wall") pops a modal dialog that blocks the Routes server indefinitely —
+    every later request then times out until a human clicks the dialog.
+
+    Warnings are auto-deleted (operation proceeds); errors roll the transaction
+    back cleanly. Call right after transaction.Start(). Best-effort — never raises.
+    """
+    try:
+        opts = transaction.GetFailureHandlingOptions()
+        opts.SetForcedModalHandling(False)
+        opts.SetClearAfterRollback(True)
+        opts.SetFailuresPreprocessor(_FailureSwallower())
+        transaction.SetFailureHandlingOptions(opts)
+    except Exception:
+        pass
+
+
 def normalize_string(text):
     """Safely normalize string values to ASCII-safe output."""
     if text is None:
@@ -43,7 +83,7 @@ def get_element_id_value(element_or_id):
     """
     Extract an integer element ID from an Element or ElementId.
     Accepts both a full Revit Element and a raw ElementId (duck typing).
-    Compatible with Revit 2024, 2025, and 2026.
+    Compatible with Revit 2024, 2025, 2026, and 2027.
     Returns a plain Python int for JSON serialization.
     Raises ValueError if the ID cannot be extracted or input is None.
     """
@@ -68,7 +108,7 @@ def get_element_id_value(element_or_id):
 def make_element_id(id_value):
     """
     Create a DB.ElementId from an integer value.
-    Compatible with Revit 2024, 2025, and 2026.
+    Compatible with Revit 2024, 2025, 2026, and 2027.
     Tries System.Int64 constructor first (2024+), falls back to int.
     Raises ValueError if the ElementId cannot be created or input is invalid.
     """

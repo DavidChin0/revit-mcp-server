@@ -4,7 +4,7 @@ Structure Module for Revit MCP
 Handles grid creation and structural framing placement
 """
 
-from utils import get_element_name, find_family_symbol_safely, get_element_id_value
+from utils import get_element_name, find_family_symbol_safely, get_element_id_value, suppress_warnings
 from pyrevit import routes, revit, DB
 import json
 import traceback
@@ -42,6 +42,7 @@ def register_structure_routes(api):
 
             t = DB.Transaction(doc, "Create Grids via MCP")
             t.Start()
+            suppress_warnings(t)
 
             try:
                 created = []
@@ -160,6 +161,7 @@ def register_structure_routes(api):
 
             t = DB.Transaction(doc, "Create Structural Framing via MCP")
             t.Start()
+            suppress_warnings(t)
 
             try:
                 created = []
@@ -222,6 +224,22 @@ def register_structure_routes(api):
                     if not target_symbol.IsActive:
                         target_symbol.Activate()
                         doc.Regenerate()
+
+                    # Place the beam at its level's elevation. NewFamilyInstance
+                    # positions a beam at the curve's Z, so without this a beam
+                    # given level_name="L40" + z=0 points would land at Z=0 instead
+                    # of on that level (inconsistent with walls/floors, which
+                    # extrude from their level). The provided point z is preserved
+                    # as an offset from the level.
+                    level_elev = 0.0
+                    try:
+                        if target_level is not None:
+                            level_elev = target_level.Elevation
+                    except Exception:
+                        level_elev = 0.0
+                    if abs(level_elev) > 1e-9:
+                        start = DB.XYZ(start.X, start.Y, start.Z + level_elev)
+                        end = DB.XYZ(end.X, end.Y, end.Z + level_elev)
 
                     # Create curve for beam
                     curve = DB.Line.CreateBound(start, end)

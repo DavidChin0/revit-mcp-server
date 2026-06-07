@@ -4,7 +4,7 @@ Annotation Module for Revit MCP
 Handles dimensions and wall tagging
 """
 
-from utils import get_element_name, get_element_id_value, make_element_id
+from utils import get_element_name, get_element_id_value, make_element_id, suppress_warnings
 from pyrevit import routes, revit, DB
 import json
 import traceback
@@ -126,6 +126,7 @@ def register_annotation_routes(api):
 
             t = DB.Transaction(doc, "Create Dimensions via MCP")
             t.Start()
+            suppress_warnings(t)
 
             try:
                 created = []
@@ -290,10 +291,12 @@ def register_annotation_routes(api):
 
             t = DB.Transaction(doc, "Tag Walls via MCP")
             t.Start()
+            suppress_warnings(t)
 
             try:
                 tags_placed = 0
                 walls_already_tagged = 0
+                skipped = []
 
                 # Activate tag symbol
                 if not target_tag.IsActive:
@@ -310,13 +313,16 @@ def register_annotation_routes(api):
                     try:
                         loc = wall.Location
                         if not loc or not hasattr(loc, "Curve"):
+                            skipped.append({
+                                "wall_id": wall_id_val,
+                                "reason": "Wall has no location curve to anchor a tag",
+                            })
                             continue
 
                         curve = loc.Curve
                         mid = curve.Evaluate(0.5, True)
-                        tag_point = DB.UV(mid.X, mid.Y)
 
-                        # Create tag using Revit 2026 API
+                        # Create tag using IndependentTag.Create (Revit 2024+)
                         ref = DB.Reference(wall)
                         tag = DB.IndependentTag.Create(
                             doc,
@@ -330,31 +336,43 @@ def register_annotation_routes(api):
 
                         if tag:
                             tags_placed += 1
+                        else:
+                            skipped.append({
+                                "wall_id": wall_id_val,
+                                "reason": "IndependentTag.Create returned no tag",
+                            })
                     except Exception as tag_err:
+                        # Surface the reason instead of silently swallowing it —
+                        # an opaque "tagged 0 walls" is undebuggable for users.
+                        reason = str(tag_err)
                         logger.warning("Could not tag wall {}: {}".format(
-                            wall_id_val, str(tag_err)
+                            wall_id_val, reason
                         ))
+                        skipped.append({"wall_id": wall_id_val, "reason": reason})
                         continue
 
                 t.Commit()
 
                 walls_total = len(walls)
-                message = "Tagged {} wall{} ({} already tagged, {} total in view)".format(
+                message = "Tagged {} wall{} ({} already tagged, {} failed, {} total in view)".format(
                     tags_placed,
                     "s" if tags_placed != 1 else "",
                     walls_already_tagged,
+                    len(skipped),
                     walls_total,
                 )
 
-                return routes.make_response(
-                    data={
-                        "status": "success",
-                        "tags_placed": tags_placed,
-                        "walls_already_tagged": walls_already_tagged,
-                        "walls_total": walls_total,
-                        "message": message,
-                    }
-                )
+                response_data = {
+                    "status": "success",
+                    "tags_placed": tags_placed,
+                    "walls_already_tagged": walls_already_tagged,
+                    "walls_total": walls_total,
+                    "message": message,
+                }
+                if skipped:
+                    response_data["skipped"] = skipped
+
+                return routes.make_response(data=response_data)
 
             except Exception as tx_error:
                 if t.HasStarted() and not t.HasEnded():

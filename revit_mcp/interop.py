@@ -4,8 +4,9 @@ Interop Module for Revit MCP
 Handles IFC export and external file linking/importing
 """
 
-from utils import get_element_name, get_element_id_value
+from utils import get_element_name, get_element_id_value, suppress_warnings
 from pyrevit import routes, revit, DB
+import clr
 import json
 import os
 import traceback
@@ -89,6 +90,7 @@ def register_interop_routes(api):
 
             t = DB.Transaction(doc, "Export IFC via MCP")
             t.Start()
+            suppress_warnings(t)
 
             try:
                 doc.Export(output_dir or ".", file_name, ifc_options)
@@ -156,6 +158,7 @@ def register_interop_routes(api):
 
             t = DB.Transaction(doc, "Link/Import File via MCP")
             t.Start()
+            suppress_warnings(t)
 
             try:
                 result_id = None
@@ -172,30 +175,42 @@ def register_interop_routes(api):
                         if link_instance:
                             result_id = get_element_id_value(link_instance)
 
-                elif file_ext in (".dwg", ".dxf", ".dgn"):
-                    # CAD file
-                    options = DB.DWGImportOptions()
-                    options.Placement = DB.ImportPlacement.Origin
-
-                    if position:
-                        # Will be applied after import via move
-                        pass
-
+                elif file_ext in (".dwg", ".dxf", ".dgn", ".sat", ".skp", ".3dm"):
+                    # CAD / 3D solid geometry. Use the correct options per format,
+                    # and capture the created element via an out-param Reference
+                    # (the previous None placeholder never captured the result).
                     active_view = doc.ActiveView
-                    linked_id = None  # clr.Reference[DB.ElementId]()
-
-                    if mode == "import":
-                        success = doc.Import(file_path, options, active_view, linked_id)
+                    if file_ext == ".sat":
+                        options = DB.SATImportOptions()
+                    elif file_ext == ".skp":
+                        options = DB.SKPImportOptions()
+                    elif file_ext == ".3dm":
+                        # Rhino import also uses SAT-style options in Revit's importer
+                        options = DB.SATImportOptions()
                     else:
-                        success = doc.Link(file_path, options, active_view, linked_id)
+                        options = DB.DWGImportOptions()
+                        options.Placement = DB.ImportPlacement.Origin
 
-                    if linked_id:
-                        result_id = get_element_id_value(linked_id)
+                    idref = clr.Reference[DB.ElementId]()
+                    # SAT/SKP/3DM are import-only (not linkable); force import.
+                    do_link = (mode == "link") and file_ext in (".dwg", ".dxf", ".dgn")
+                    if do_link:
+                        doc.Link(file_path, options, active_view, idref)
+                        mode = "link"
+                    else:
+                        doc.Import(file_path, options, active_view, idref)
+                        mode = "import"
+
+                    try:
+                        if idref.Value and idref.Value != DB.ElementId.InvalidElementId:
+                            result_id = get_element_id_value(idref.Value)
+                    except Exception:
+                        result_id = None
 
                 else:
                     t.RollBack()
                     return routes.make_response(
-                        data={"error": "Unsupported file type '{}'. Supported: DWG, DXF, DGN, RVT".format(file_ext)},
+                        data={"error": "Unsupported file type '{}'. Supported: DWG, DXF, DGN, SAT, SKP, 3DM, RVT".format(file_ext)},
                         status=400,
                     )
 

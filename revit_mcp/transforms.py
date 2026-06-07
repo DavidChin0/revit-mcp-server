@@ -4,7 +4,7 @@ Transforms Module for Revit MCP
 Handles move, copy, rotate, and mirror operations on elements
 """
 
-from utils import get_element_id_value, make_element_id
+from utils import get_element_id_value, make_element_id, suppress_warnings
 from pyrevit import routes, revit, DB
 from System.Collections.Generic import List
 import json
@@ -70,6 +70,7 @@ def register_transform_routes(api):
 
             t = DB.Transaction(doc, "Transform Elements via MCP")
             t.Start()
+            suppress_warnings(t)
 
             try:
                 new_element_ids = []

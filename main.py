@@ -22,6 +22,22 @@ REVIT_HOST = os.environ.get("REVIT_HOST", "localhost")
 REVIT_PORT = 48884  # Default pyRevit Routes port
 BASE_URL = f"http://{REVIT_HOST}:{REVIT_PORT}/revit_mcp"
 
+# Shared HTTP client with keep-alive connection pooling. Reusing a single
+# AsyncClient across all tool calls avoids the per-request TCP/handshake cost
+# of creating a new client each time — meaningful when a session fires dozens
+# of calls at the local Routes server.
+_http_client: Optional[httpx.AsyncClient] = None
+
+
+def _get_client() -> httpx.AsyncClient:
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.AsyncClient(
+            base_url=BASE_URL,
+            limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
+        )
+    return _http_client
+
 
 async def revit_get(endpoint: str, ctx: Context = None, **kwargs) -> Union[Dict, str]:
     """Simple GET request to Revit API"""
@@ -36,15 +52,15 @@ async def revit_post(endpoint: str, data: Dict[str, Any], ctx: Context = None, *
 async def revit_image(endpoint: str, ctx: Context = None) -> Union[Image, str]:
     """GET request that returns an Image object"""
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.get(f"{BASE_URL}{endpoint}")
-            
-            if response.status_code == 200:
-                data = response.json()
-                image_bytes = base64.b64decode(data["image_data"])
-                return Image(data=image_bytes, format="png")
-            else:
-                return f"Error: {response.status_code} - {response.text}"
+        client = _get_client()
+        response = await client.get(endpoint, timeout=60.0)
+
+        if response.status_code == 200:
+            data = response.json()
+            image_bytes = base64.b64decode(data["image_data"])
+            return Image(data=image_bytes, format="png")
+        else:
+            return f"Error: {response.status_code} - {response.text}"
     except Exception as e:
         return f"Error: {e}"
 
@@ -53,15 +69,19 @@ async def _revit_call(method: str, endpoint: str, data: Dict = None, ctx: Contex
                      timeout: float = 30.0, params: Dict = None) -> Union[Dict, str]:
     """Internal function handling all HTTP calls"""
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            url = f"{BASE_URL}{endpoint}"
-            
-            if method == "GET":
-                response = await client.get(url, params=params)
-            else:  # POST
-                response = await client.post(url, json=data, headers={"Content-Type": "application/json"})
-            
-            return response.json() if response.status_code == 200 else f"Error: {response.status_code} - {response.text}"
+        client = _get_client()
+
+        if method == "GET":
+            response = await client.get(endpoint, params=params, timeout=timeout)
+        else:  # POST
+            response = await client.post(
+                endpoint,
+                json=data,
+                headers={"Content-Type": "application/json"},
+                timeout=timeout,
+            )
+
+        return response.json() if response.status_code == 200 else f"Error: {response.status_code} - {response.text}"
     except Exception as e:
         return f"Error: {e}"
 

@@ -243,22 +243,20 @@ def register_model_info_routes(api):
 
                 views_count = len(valid_views)
 
-                # Count major view types
-                floor_plans = sum(
-                    1 for v in valid_views if v.ViewType == DB.ViewType.FloorPlan
-                )
-                elevations = sum(
-                    1 for v in valid_views if v.ViewType == DB.ViewType.Elevation
-                )
-                sections = sum(
-                    1 for v in valid_views if v.ViewType == DB.ViewType.Section
-                )
-                threed_views = sum(
-                    1 for v in valid_views if v.ViewType == DB.ViewType.ThreeD
-                )
-                schedules = sum(
-                    1 for v in valid_views if v.ViewType == DB.ViewType.Schedule
-                )
+                # Count major view types in a single pass (vs five separate scans)
+                floor_plans = elevations = sections = threed_views = schedules = 0
+                for v in valid_views:
+                    vt = v.ViewType
+                    if vt == DB.ViewType.FloorPlan:
+                        floor_plans += 1
+                    elif vt == DB.ViewType.Elevation:
+                        elevations += 1
+                    elif vt == DB.ViewType.Section:
+                        sections += 1
+                    elif vt == DB.ViewType.ThreeD:
+                        threed_views += 1
+                    elif vt == DB.ViewType.Schedule:
+                        schedules += 1
 
             except Exception as e:
                 logger.warning("Could not get views/sheets: {}".format(str(e)))
