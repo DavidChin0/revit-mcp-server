@@ -15,12 +15,15 @@ def format_response(response):
         # Check for different success patterns
         status = response.get("status", "").lower()
         health = response.get("health", "").lower()
-        
-        # Success conditions: status="success" OR status="active" with health="healthy"
-        is_success = (status == "success" or 
-                     (status == "active" and health == "healthy") or
-                     (status == "active" and "revit_available" in response and response["revit_available"]))
-        
+
+        # Routes signal failure with an "error" key or an explicit failure status.
+        # Any other dict (including data-bearing responses that omit "status",
+        # e.g. get_revit_model_info) is a success — otherwise good data is
+        # mislabeled as an error.
+        has_error = (bool(response.get("error")) or
+                     status in ("error", "failed", "failure", "exception"))
+        is_success = not has_error
+
         if is_success:
             # For successful responses, return the most relevant data
             if "output" in response:  # Code execution responses
@@ -54,6 +57,17 @@ def format_response(response):
                 
                 return "\n".join(status_parts)
             else:
+                # Structured success payload without a standard wrapper key
+                # (e.g. model info, level lists). Surface the data instead of
+                # hiding it behind a generic message.
+                data_fields = dict((k, v) for k, v in response.items()
+                                   if k not in ("status", "health", "success"))
+                if data_fields:
+                    parts = []
+                    for key in sorted(data_fields):
+                        parts.append("{}: {}".format(key.replace("_", " ").title(),
+                                                      data_fields[key]))
+                    return "\n".join(parts)
                 return "Operation completed successfully"
         else:
             # Error case - provide verbose debugging information
