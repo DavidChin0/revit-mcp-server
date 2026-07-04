@@ -270,6 +270,45 @@ Adding a new tool requires 2 files + 2 registration lines:
 
 See `LLM.txt` for full context that helps AI assistants understand the codebase.
 
+## Development Workflow: Editing & Reloading Routes
+
+The MCP server has two layers:
+
+- **FastMCP** (`tools/`, `main.py`) — runs in your AI client process. Changes apply on next client restart.
+- **pyRevit Routes** (`revit_mcp/`, `startup.py`) — runs inside Revit via pyRevit. Changes require a sync + reload.
+
+### Typical Edit → Test Cycle
+
+1. **Edit code** in repo (e.g., `revit_mcp/view_management.py` or `tools/view_management_tools.py`)
+
+2. **Sync to pyRevit** (Windows PowerShell):
+   ```powershell
+   D:\GitHub\revit-mcp-server\sync_to_pyrevit.ps1
+   ```
+   → Copies `revit_mcp/` and `tools/` to your active pyRevit extension folder.
+
+3. **Reload pyRevit** (via MCP tool `execute_revit_code`):
+   ```python
+   from pyrevit.loader import sessionmgr
+   sessionmgr.reload_pyrevit()
+   ```
+   → Takes ~90s. May return "Error: " vacío — that's normal (reloads kill active requests).
+
+4. **Verify** your changes:
+   - **Endpoint routes** (`POST /refresh_view/`, etc.): test immediately post-reload via `curl` or `Invoke-RestMethod`
+   - **MCP tools** (new `refresh_view()`, etc.): visible in next MCP client session (stdio restarts after Revit reload)
+
+### Example: Adding `refresh_view` (2026-07-03)
+
+```
+1. Added refresh_view_handler route to revit_mcp/view_management.py
+2. Added refresh_view tool to tools/view_management_tools.py
+3. Ran sync_to_pyrevit.ps1 → copied both files to %APPDATA%\pyRevit\Extensions\
+4. Called reload_pyrevit() via execute_revit_code
+5. POST http://localhost:48884/revit_mcp/refresh_view/ → {"status":"refreshed",...}
+6. Next MCP session → tool refresh_view() available in Claude/Cursor/etc.
+```
+
 ## Contributing
 
 Contributions are welcome! Feel free to submit pull requests or open issues.

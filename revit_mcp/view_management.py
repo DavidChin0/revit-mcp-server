@@ -370,7 +370,11 @@ def register_view_management_routes(api):
 
     @api.route("/refresh_view/", methods=["POST"])
     def refresh_view_handler(doc, request):
-        """Refresh the active view: regenerate document and repaint all open views."""
+        """Refresh the active view: regenerate document and repaint all open views.
+
+        Called after model changes to repaint Revit UI without manual refresh.
+        Enables agentes auditar keynotes, tags, etc. en tiempo real.
+        """
         try:
             if not doc:
                 return routes.make_response(
