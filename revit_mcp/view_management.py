@@ -368,4 +368,38 @@ def register_view_management_routes(api):
                 data={"error": str(e), "traceback": error_trace}, status=500
             )
 
+    @api.route("/refresh_view/", methods=["POST"])
+    def refresh_view_handler(doc, request):
+        """Refresh the active view: regenerate document and repaint all open views."""
+        try:
+            if not doc:
+                return routes.make_response(
+                    data={"error": "No active Revit document"}, status=503
+                )
+
+            uidoc = revit.uidoc
+            try:
+                doc.Regenerate()
+            except Exception:
+                # Regenerate can fail outside a transaction with pending
+                # changes; the repaint calls below still refresh the UI.
+                pass
+
+            active_view_name = None
+            if uidoc is not None:
+                uidoc.RefreshActiveView()
+                uidoc.UpdateAllOpenViews()
+                if uidoc.ActiveView is not None:
+                    active_view_name = get_element_name(uidoc.ActiveView)
+
+            return routes.make_response(
+                data={"status": "refreshed", "active_view": active_view_name}
+            )
+
+        except Exception as e:
+            logger.error("Failed to refresh view: %s", traceback.format_exc())
+            return routes.make_response(
+                data={"error": str(e)}, status=500
+            )
+
     logger.info("View management routes registered successfully")

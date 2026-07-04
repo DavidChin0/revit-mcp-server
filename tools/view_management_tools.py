@@ -62,3 +62,20 @@ def register_view_management_tools(mcp, revit_get, revit_post, revit_image=None)
         data = {"view_name": view_name}
         response = await revit_post("/set_active_view/", data, ctx)
         return format_response(response)
+
+    @mcp.tool()
+    async def refresh_view(
+        ctx: Context = None,
+    ) -> str:
+        """Refresh the Revit view after making changes.
+
+        Regenerates the document and repaints all open views so changes made
+        via MCP tools become visible immediately, without the user having to
+        refresh manually. Call this after creating, modifying, or deleting
+        elements when the user is watching the Revit window.
+
+        Args:
+            ctx: MCP context for logging
+        """
+        response = await revit_post("/refresh_view/", {}, ctx)
+        return format_response(response)
