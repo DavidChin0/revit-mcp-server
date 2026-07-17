@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import gc
 import os
 import sys
 import httpx
@@ -10,8 +11,8 @@ from typing import Optional, Dict, Any, Union
 # Create a generic MCP server for interacting with Revit
 # Use stateless_http=True and json_response=True for better compatibility
 mcp = FastMCP(
-    "Revit MCP Server", 
-    host="127.0.0.1", 
+    "Revit MCP Server",
+    host="127.0.0.1",
     port=8000,
     stateless_http=True,
     json_response=True
@@ -22,11 +23,17 @@ REVIT_HOST = os.environ.get("REVIT_HOST", "localhost")
 REVIT_PORT = 48884  # Default pyRevit Routes port
 BASE_URL = f"http://{REVIT_HOST}:{REVIT_PORT}/revit_mcp"
 
+# Dump the HTTP connection pool every N tool calls to reclaim response buffers
+# and fragmented heap. Sync'd via a simple module counter (stdio = single process,
+# no concurrency risk between tool calls).
+CACHE_DUMP_INTERVAL = int(os.environ.get("REVIT_MCP_DUMP_INTERVAL", "3"))
+
 # Shared HTTP client with keep-alive connection pooling. Reusing a single
 # AsyncClient across all tool calls avoids the per-request TCP/handshake cost
 # of creating a new client each time — meaningful when a session fires dozens
 # of calls at the local Routes server.
 _http_client: Optional[httpx.AsyncClient] = None
+_call_count: int = 0
 
 
 def _get_client() -> httpx.AsyncClient:
@@ -37,6 +44,27 @@ def _get_client() -> httpx.AsyncClient:
             limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
         )
     return _http_client
+
+
+async def _flush_client() -> Dict[str, Any]:
+    """Close the HTTP client pool and run GC. Client recreates on next call."""
+    global _http_client, _call_count
+    client = _http_client
+    _http_client = None
+    if client is not None and not client.is_closed:
+        await client.aclose()
+    collected = gc.collect()
+    return {"flushed": True, "call_count": _call_count, "gc_collected": collected}
+
+
+async def _maybe_flush() -> None:
+    """Auto-dump every CACHE_DUMP_INTERVAL calls (0 = disabled)."""
+    global _call_count
+    if CACHE_DUMP_INTERVAL <= 0:
+        return
+    _call_count += 1
+    if _call_count % CACHE_DUMP_INTERVAL == 0:
+        await _flush_client()
 
 
 async def revit_get(endpoint: str, ctx: Context = None, **kwargs) -> Union[Dict, str]:
@@ -65,9 +93,10 @@ async def revit_image(endpoint: str, ctx: Context = None) -> Union[Image, str]:
         return f"Error: {e}"
 
 
-async def _revit_call(method: str, endpoint: str, data: Dict = None, ctx: Context = None, 
+async def _revit_call(method: str, endpoint: str, data: Dict = None, ctx: Context = None,
                      timeout: float = 30.0, params: Dict = None) -> Union[Dict, str]:
     """Internal function handling all HTTP calls"""
+    await _maybe_flush()
     try:
         client = _get_client()
 
@@ -84,6 +113,14 @@ async def _revit_call(method: str, endpoint: str, data: Dict = None, ctx: Contex
         return response.json() if response.status_code == 200 else f"Error: {response.status_code} - {response.text}"
     except Exception as e:
         return f"Error: {e}"
+
+
+@mcp.tool()
+async def dump_cache(ctx: Context = None) -> Dict[str, Any]:
+    """Force-flush the HTTP connection pool and run GC immediately."""
+    result = await _flush_client()
+    result["dump_interval"] = CACHE_DUMP_INTERVAL
+    return result
 
 
 # Register all tools BEFORE the main block
